@@ -47,4 +47,23 @@ jobs:
     with:
       SERVICE_NAME: "Test Service"
       ENV_FILE: ".envs.json"
+      #   CLIENT: |
+      #     - CLIENT: "gel"
+      #       ENVIRONMENT: "dev1"
+      #       S3_BUCKET: "gel-dev-ecs-envfiles"
+      #       ECS_CLUSTER: "cloudos-cluster-dev"
+      #       AWS_PROFILE: "gel_cloudos_dev"
+      CLIENT: |
+        {
+        "include":
+            [
+                {
+                    "CLIENT": "gel",
+                    "ENVIRONMENT": "dev1",
+                    "S3_BUCKET": "gel-dev-ecs-envfiles",
+                    "ECS_CLUSTER": "cloudos-cluster-dev",
+                    "AWS_PROFILE": "gel_cloudos_dev"
+                }
+            ]
+        }
     secrets: inherit

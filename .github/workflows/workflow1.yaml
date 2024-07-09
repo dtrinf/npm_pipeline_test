@@ -27,23 +27,72 @@ on:
         type: string
         required: false
 
+env:
+  #   CLIENT: |
+  #     - CLIENT: "gel"
+  #       ENVIRONMENT: "int"
+  #       S3_BUCKET: "gel-tst-ecs-envfiles"
+  #       ECS_CLUSTER: "cloudos-cluster-tst"
+  #       AWS_PROFILE: "gel_cloudos_test"
+  #     - CLIENT: "lifebit"
+  #         ENVIRONMENT: "dev"
+  #         S3_BUCKET: "cloudos-sdlc-ecs-envfiles"
+  #         ECS_CLUSTER: "cloudos-cluster-sdlc"
+  #         AWS_PROFILE: "cloudos_sdlc"
+  CLIENT: |
+    {
+    "include":
+        [
+            {
+                "CLIENT": "gel",
+                "ENVIRONMENT": "int",
+                "S3_BUCKET": "gel-tst-ecs-envfiles",
+                "ECS_CLUSTER": "cloudos-cluster-tst",
+                "AWS_PROFILE": "gel_cloudos_test"
+            },
+            {
+                "CLIENT": "lifebit",
+                "ENVIRONMENT": "dev",
+                "S3_BUCKET": "cloudos-sdlc-ecs-envfiles",
+                "ECS_CLUSTER": "cloudos-cluster-sdlc",
+                "AWS_PROFILE": "cloudos_sdlc"
+            }
+        ]
+    }
+
 jobs:
+  print_matrix:
+    name: Print matrix
+    runs-on: ${{ inputs.RUNNER_LABEL }}
+    steps:
+      - run: |
+          echo "SERVICE_NAME: ${{ inputs.SERVICE_NAME }}"
+          echo "RUNNER_LABEL: ${{ inputs.RUNNER_LABEL }}"
+          echo "ENV_FILE: ${{ inputs.ENV_FILE }}"
+          echo "CLIENT: ${{ inputs.CLIENT }}"
+          echo "Matrix:  ${{ fromJson(inputs.CLIENT) }}"
+
+  merge_matrix:
+    name: Merge matrix
+    runs-on: ${{ inputs.RUNNER_LABEL }}
+    outputs:
+      matrix: ${{ steps.merge.outputs.matrix }}
+    steps:
+      - id: merge
+        run: |
+          echo '${{ env.CLIENT }}' > client1.json
+          echo '${{ inputs.CLIENT }}' > client2.json
+          MERGED_MATRIX=$(jq -c -s '
+          (.[0] | keys[]) as $k |
+          reduce .[] as $item (null; .[$k] += $item[$k])' client*.json)
+          echo "matrix=$MERGED_MATRIX" >> $GITHUB_OUTPUT
+
   update_ecs_services:
     name: Update ${{ matrix.CLIENT }} ${{ inputs.SERVICE_NAME }} ECS services
+    needs: merge_matrix
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - CLIENT: gel
-            ENVIRONMENT: int
-            S3_BUCKET: "gel-tst-ecs-envfiles"
-            ECS_CLUSTER: "cloudos-cluster-tst"
-            AWS_PROFILE: "gel_cloudos_test"
-          - CLIENT: lifebit
-            ENVIRONMENT: dev
-            S3_BUCKET: "cloudos-sdlc-ecs-envfiles"
-            ECS_CLUSTER: "cloudos-cluster-sdlc"
-            AWS_PROFILE: "cloudos_sdlc"
+      matrix: ${{ fromJson(needs.merge_matrix.outputs.matrix) }}
 
     runs-on: ${{ inputs.RUNNER_LABEL }}
     steps:
