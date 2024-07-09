@@ -1,57 +1,50 @@
-name: MAIN Pipeline
+name: MAIN Workflow
 
-run-name: "${{ github.event.pull_request.title ||
-  github.event.head_commit.message ||
-  format('MAIN {0} Workflow in {1} {2} by {3}', github.event.repository.name, github.ref_type, github.ref_name, github.actor) }}"
+run-name: "${{ github.event.pull_request.title || github.event.head_commit.message || github.actor == 'github-actions[bot]' && format('Code Freeze {0} Workflow in {1} {2}', github.event.repository.name, github.ref_type, github.ref_name) || format('MAIN {0} Workflow in {1} {2} by {3}', github.event.repository.name, github.ref_type, github.ref_name, github.actor) }}"
 
 on:
   pull_request:
     branches:
       - "*"
-    # paths-ignore:
-    #   - ".github/**"
-    #   - "CHANGELOG.md"
 
   push:
     branches:
       - "main"
+      - release-[0-9]+.[0-9]+
     paths-ignore:
       - ".github/**"
       - "CHANGELOG.md"
 
   workflow_dispatch:
-
+    inputs:
+      skip_lint_test:
+        description: "Skip lint and test jobs?"
+        required: false
+        default: false
+        type: boolean
+      skip_build:
+        description: "Skip Build jobs?"
+        required: false
+        default: false
+        type: boolean
+      skip_deploy:
+        description: "Skip Deploy jobs?"
+        required: false
+        default: false
+        type: boolean
+      enable_push_build:
+        description: "Enable push build?"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
-
-  npm_test:
-    # use docker run inside the tests
-    name: NPM run test
-    runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mirror.gcr.io/mysql:8.0.20
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
-        ports:
-          - 3306:3306
-        env:
-          MYSQL_ROOT_PASSWORD: test-db-password
-          MYSQL_DATABASE: test-db-name
-          MYSQL_USER: test-db-user
-          MYSQL_PASSWORD: test-db-password
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-      - name: Run test
-        run: |
-          npm ci
-          npm run test
-    env:
-      TEST_DB_NETWORK: host
- 
+  deploy_container:
+    name: Deploy ${{ github.event.repository.name }} container
+    uses: ./.github/workflows/workflow1.yaml
+    strategy:
+      fail-fast: false
+    with:
+      SERVICE_NAME: "Test Service"
+      ENV_FILE: ".envs.json"
+    secrets: inherit

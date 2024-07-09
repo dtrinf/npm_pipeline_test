@@ -1,0 +1,52 @@
+name: Deploy Cloudos Application reusable workflow
+
+run-name: "${{ inputs.SERVICE_NAME }}_deploy"
+
+###
+# Workflow to deploy (update) a service to Cloudos (ECS Internal-Lifebit DEV environment)
+#
+# Inputs:
+#   SERVICE_NAME: Name of the service to deploy
+#   RUNNER_LABEL: Label of the runner to use. If not set, it will use 'ubuntu-latest'
+#   ENV_FILE: Path to the JSON file with the environment variables to deploy
+###
+
+on:
+  workflow_call:
+    inputs:
+      SERVICE_NAME:
+        type: string
+        required: true
+      RUNNER_LABEL:
+        type: string
+        default: "ubuntu-latest"
+      ENV_FILE:
+        type: string
+        required: true
+      CLIENT:
+        type: string
+        required: false
+
+jobs:
+  update_ecs_services:
+    name: Update ${{ matrix.CLIENT }} ${{ inputs.SERVICE_NAME }} ECS services
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - CLIENT: gel
+            ENVIRONMENT: int
+            S3_BUCKET: "gel-tst-ecs-envfiles"
+            ECS_CLUSTER: "cloudos-cluster-tst"
+            AWS_PROFILE: "gel_cloudos_test"
+          - CLIENT: lifebit
+            ENVIRONMENT: dev
+            S3_BUCKET: "cloudos-sdlc-ecs-envfiles"
+            ECS_CLUSTER: "cloudos-cluster-sdlc"
+            AWS_PROFILE: "cloudos_sdlc"
+
+    runs-on: ${{ inputs.RUNNER_LABEL }}
+    steps:
+      - if: ${{ matrix.CLIENT }}
+        run: |
+          echo "Deploying ${{ inputs.SERVICE_NAME }} to ${{ matrix.CLIENT }} ${{ matrix.ENVIRONMENT }} environment"
